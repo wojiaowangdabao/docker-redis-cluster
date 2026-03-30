@@ -1,4 +1,4 @@
-version: '3'
+name: redis-cluster
 
 networks:
   redis-cluster:
@@ -9,6 +9,7 @@ x-redis-common: &redis-common
   image: redis:7
   networks:
     - redis-cluster
+  restart: always
   deploy:
       resources:
         limits:
@@ -224,4 +225,68 @@ services:
       --bind 0.0.0.0
     <<: *redis-common
 
-    
+  create-cluster:
+    image: redis:7
+    container_name: create-cluster
+    networks:
+      - redis-cluster
+    depends_on:
+      redis1:
+        condition: service_healthy
+      redis2:
+        condition: service_healthy
+      redis3:
+        condition: service_healthy
+      redis4:
+        condition: service_healthy
+      redis5:
+        condition: service_healthy
+      redis6:
+        condition: service_healthy
+    command: |
+      bash -c "
+      echo '等待所有Redis节点可用...'
+      
+      # 定义要检查的Redis节点
+      REDIS_NODES=(redis-1 redis-2 redis-3 redis-4 redis-5 redis-6)
+      REDIS_PASSWORD=${REDIS_PASSWORD}
+      MAX_RETRIES=30
+      RETRY_COUNT=0
+      
+      # 检查所有Redis节点是否可用
+      while true; do
+        ALL_READY=true
+        for node in \"$${REDIS_NODES[@]}\"; do
+          if ! redis-cli -h \"$$node\" -p 6379 -a \"$$REDIS_PASSWORD\" ping &> /dev/null; then
+            ALL_READY=false
+            break
+          fi
+        done
+        
+        if $$ALL_READY; then
+          echo '所有Redis节点已可用！'
+          break
+        fi
+        
+        RETRY_COUNT=$$((RETRY_COUNT + 1))
+        if [ $$RETRY_COUNT -ge $$MAX_RETRIES ]; then
+          echo '等待Redis节点超时'
+          exit 1
+        fi
+        
+        echo '等待Redis节点... ('$$RETRY_COUNT'/'$$MAX_RETRIES')'
+        sleep 2
+      done
+      
+      # 执行集群创建命令
+      echo '正在创建Redis集群...'
+      redis-cli --cluster create "${IPV4}:7001" "${IPV4}:7002" "${IPV4}:7003" "${IPV4}:7004" "${IPV4}:7005" "${IPV4}:7006" --cluster-replicas 1 --cluster-yes -a "${REDIS_PASSWORD}"
+      echo 'Redis集群创建完成！'
+      exit 0
+      "
+    restart: no
+    deploy:
+      resources:
+        limits:
+          cpus: '0.05'
+          memory: 64M
