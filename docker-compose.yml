@@ -225,6 +225,76 @@ services:
       --bind 0.0.0.0
     <<: *redis-common
 
+  redis7:
+    container_name: redis-7
+    ports:
+      - "7007:6379"
+      - "17007:16379"
+    volumes:
+      - ./redis-data/7007:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-h", "redis-7", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 3s
+      retries: 5
+      start_period: 2s
+      timeout: 3s
+    depends_on:
+      - redis1
+    command: >
+      redis-server
+      --cluster-enabled yes
+      --cluster-config-file nodes.conf
+      --cluster-node-timeout 5000
+      --cluster-announce-ip ${IPV4}
+      --cluster-announce-port 7007
+      --cluster-announce-bus-port 17007
+      --cluster-replica-no-failover yes
+      --appendonly yes
+      --save 300 1000
+      --save 60 10000
+      --requirepass ${REDIS_PASSWORD}
+      --masterauth ${REDIS_PASSWORD}
+      --maxmemory 64m
+      --maxmemory-policy allkeys-lru
+      --protected-mode no
+      --bind 0.0.0.0
+    <<: *redis-common
+
+  redis8:
+    container_name: redis-8
+    ports:
+      - "7008:6379"
+      - "17008:16379"
+    volumes:
+      - ./redis-data/7008:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-h", "redis-8", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 3s
+      retries: 5
+      start_period: 2s
+      timeout: 3s
+    depends_on:
+      - redis1
+    command: >
+      redis-server
+      --cluster-enabled yes
+      --cluster-config-file nodes.conf
+      --cluster-node-timeout 5000
+      --cluster-announce-ip ${IPV4}
+      --cluster-announce-port 7008
+      --cluster-announce-bus-port 17008
+      --cluster-replica-no-failover yes
+      --appendonly yes
+      --save 300 1000
+      --save 60 10000
+      --requirepass ${REDIS_PASSWORD}
+      --masterauth ${REDIS_PASSWORD}
+      --maxmemory 64m
+      --maxmemory-policy allkeys-lru
+      --protected-mode no
+      --bind 0.0.0.0
+    <<: *redis-common
+
   create-cluster:
     image: redis:7
     container_name: create-cluster
